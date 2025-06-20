@@ -1,5 +1,5 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-
+# Source https://github.com/ultralytics/JSON2YOLO/blob/main/general_json2yolo.py
 import contextlib
 import json
 from collections import defaultdict
@@ -9,6 +9,7 @@ import pandas as pd
 from PIL import Image
 
 from utils import *
+import argparse
 
 
 # Convert INFOLKS JSON file into YOLO-format labels ----------------------------
@@ -254,15 +255,18 @@ def convert_ath_json(json_dir):  # dir contains json annotations and images
     print(f"Done. Output saved to {Path(dir).absolute()}")
 
 
-def convert_coco_json(json_dir="../coco/annotations/", use_segments=False, cls91to80=False):
+def convert_coco_json(json_dir="../coco/annotations/",output_dir="../yolo/annotations", use_segments=False, cls91to80=False):
     """Converts COCO JSON format to YOLO label format, with options for segments and class mapping."""
-    save_dir = make_dirs()  # output directory
+    save_dir = make_dirs(dir=output_dir)  # output directory
     coco80 = coco91_to_coco80_class()
 
     # Import json
     for json_file in sorted(Path(json_dir).resolve().glob("*.json")):
-        fn = Path(save_dir) / "labels" / json_file.stem.replace("instances_", "")  # folder name
-        fn.mkdir()
+        fn = Path(save_dir) / "labels"
+        fi =  Path(save_dir) / "images"
+        fn.mkdir(parents=True, exist_ok=True)
+        fi.mkdir(parents=True, exist_ok=True)
+
         with open(json_file) as f:
             data = json.load(f)
 
@@ -313,6 +317,7 @@ def convert_coco_json(json_dir="../coco/annotations/", use_segments=False, cls91
                     line = (*(segments[i] if use_segments else bboxes[i]),)  # cls, box or segments
                     file.write(("%g " * len(line)).rstrip() % line + "\n")
 
+            shutil.copy(Path(json_dir)/f, fi / f)
 
 def min_index(arr1, arr2):
     """
@@ -389,27 +394,22 @@ def delete_dsstore(path="../datasets"):
 
 
 if __name__ == "__main__":
-    source = "COCO"
+    parser = argparse.ArgumentParser(description="General Json 2 YOLO")
 
-    if source == "COCO":
-        convert_coco_json(
-            "../datasets/coco/annotations",  # directory with *.json
-            use_segments=True,
-            cls91to80=True,
-        )
+    # Add arguments
+    parser.add_argument('--dir', type=str, required=True, help='Directory path')
+    parser.add_argument('--save_dir', type=str, required=True, help='Save Directory path')
 
-    elif source == "infolks":  # Infolks https://infolks.info/
-        convert_infolks_json(name="out", files="../data/sm4/json/*.json", img_path="../data/sm4/images/")
+    # Parse arguments
+    args = parser.parse_args()
 
-    elif source == "vott":  # VoTT https://github.com/microsoft/VoTT
-        convert_vott_json(
-            name="data",
-            files="../../Downloads/athena_day/20190715/*.json",
-            img_path="../../Downloads/athena_day/20190715/",
-        )  # images folder
+    convert_coco_json(
+        json_dir=args.dir,  # directory with *.json
+        use_segments=True,
+        cls91to80=True,
+        output_dir=args.save_dir
+    )
 
-    elif source == "ath":  # ath format
-        convert_ath_json(json_dir="../../Downloads/athena/")  # images folder
 
     # zip results
     # os.system('zip -r ../coco.zip ../coco')
